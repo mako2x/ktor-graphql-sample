@@ -3,6 +3,7 @@ package com.example
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.github.pgutkowski.kgraphql.KGraphQL
 import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
@@ -46,6 +47,10 @@ class User(val name: String, val password: String)
 
 class LoginRegister(val user: String, val password: String)
 
+class GraphQLRequest(val query: String = "",
+                     val operationName: String? = null,
+                     val variables: Map<String, Any>? = null)
+
 class InvalidCredentialsException(message: String) : RuntimeException(message)
 
 val snippets = Collections.synchronizedList(
@@ -60,6 +65,18 @@ val users = Collections.synchronizedMap(
         .associateBy { it.name }
         .toMutableMap()
 )
+
+val schema = KGraphQL.schema {
+    query("snippet") {
+        resolver { username: String ->
+            snippets.filter { it.user == username }
+        }
+    }
+
+    type<Snippet> {
+        description = "Snippet"
+    }
+}
 
 @Suppress("unused") // Referenced in application.conf
 @kotlin.jvm.JvmOverloads
@@ -122,6 +139,11 @@ fun Application.module(testing: Boolean = false) {
                     call.respond(mapOf("OK" to true))
                 }
             }
+        }
+
+        post("/graphql") {
+            val request = call.receive<GraphQLRequest>()
+            call.respondText(schema.execute(request.query), contentType = ContentType.Application.Json)
         }
     }
 }
