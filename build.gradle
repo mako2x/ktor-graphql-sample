@@ -13,7 +13,7 @@ apply plugin: 'application'
 
 group 'example'
 version '0.0.1'
-mainClassName = "io.ktor.server.netty.EngineMain"
+mainClassName = "com.example.ApplicationKt"
 
 sourceSets {
     main.kotlin.srcDirs = main.java.srcDirs = ['src']
@@ -33,6 +33,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile "io.ktor:ktor-server-netty:$ktor_version"
     compile 'com.github.pgutkowski:kgraphql:0.3.0'
+    compile 'org.koin:koin-ktor:1.0.2'
     compile "ch.qos.logback:logback-classic:$logback_version"
     compile "io.ktor:ktor-server-core:$ktor_version"
     compile "io.ktor:ktor-auth:$ktor_version"
