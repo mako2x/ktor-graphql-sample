@@ -1,13 +1,8 @@
-# Get all the snippets
-GET {{host}}/snippets
-
-###
-
 # Register a new user
 POST {{host}}/login-register
 Content-Type: application/json
 
-{"user" : "test", "password" : "test"}
+{"username" : "test.test", "password" : "test"}
 
 > {%
 client.assert(typeof response.body.token !== "undefined", "No token returned");
@@ -29,6 +24,6 @@ Authorization: Bearer {{auth_token}}
 POST http://127.0.0.1:8080/login-register
 Content-Type: application/json
 
-{"user" : "test", "password" : "invalid-password"}
+{"username" : "takashi.kihara", "password" : "invalid-password"}
 
 ###

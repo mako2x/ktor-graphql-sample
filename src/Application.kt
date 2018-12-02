@@ -2,16 +2,18 @@ package com.example
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.example.data.datasource.AttendanceDataSource
+import com.example.data.datasource.UserDataSource
+import com.example.exception.InvalidCredentialsException
+import com.example.graphql.AppSchema
+import com.example.graphql.GraphQLRequest
 import com.fasterxml.jackson.databind.SerializationFeature
-import com.github.pgutkowski.kgraphql.KGraphQL
 import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.auth.Authentication
 import io.ktor.auth.UserIdPrincipal
-import io.ktor.auth.authenticate
 import io.ktor.auth.jwt.jwt
-import io.ktor.auth.principal
 import io.ktor.features.CORS
 import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
@@ -25,9 +27,7 @@ import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.get
 import io.ktor.routing.post
-import io.ktor.routing.route
 import io.ktor.routing.routing
-import java.util.*
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
@@ -37,46 +37,11 @@ open class SimpleJWT(val secret: String) {
     fun sign(name: String): String = JWT.create().withClaim("name", name).sign(algorithm)
 }
 
-data class Snippet(val user: String, val text: String)
+class LoginRegister(val username: String, val password: String)
 
-data class PostSnippet(val snippet: PostSnippet.Text) {
-    data class Text(val text: String)
-}
-
-class User(val name: String, val password: String)
-
-class LoginRegister(val user: String, val password: String)
-
-class GraphQLRequest(val query: String = "",
-                     val operationName: String? = null,
-                     val variables: Map<String, Any>? = null)
-
-class InvalidCredentialsException(message: String) : RuntimeException(message)
-
-val snippets = Collections.synchronizedList(
-    mutableListOf(
-        Snippet(user = "test", text = "hello"),
-        Snippet(user = "test", text = "world")
-    )
-)
-
-val users = Collections.synchronizedMap(
-    listOf(User("test", "test"))
-        .associateBy { it.name }
-        .toMutableMap()
-)
-
-val schema = KGraphQL.schema {
-    query("snippet") {
-        resolver { username: String ->
-            snippets.filter { it.user == username }
-        }
-    }
-
-    type<Snippet> {
-        description = "Snippet"
-    }
-}
+val userDataSource = UserDataSource()
+val attendanceDataSource = AttendanceDataSource()
+val appSchema = AppSchema(userDataSource, attendanceDataSource)
 
 @Suppress("unused") // Referenced in application.conf
 @kotlin.jvm.JvmOverloads
@@ -110,7 +75,12 @@ fun Application.module(testing: Boolean = false) {
 
     install(StatusPages) {
         exception<InvalidCredentialsException> { exception ->
-            call.respond(HttpStatusCode.Unauthorized, mapOf("OK" to false, "error" to (exception.message ?: "")))
+            call.respond(
+                HttpStatusCode.Unauthorized, mapOf(
+                    "OK" to false,
+                    "error" to (exception.message ?: "")
+                )
+            )
         }
     }
 
@@ -121,29 +91,25 @@ fun Application.module(testing: Boolean = false) {
 
         post("/login-register") {
             val post = call.receive<LoginRegister>()
-            val user = users.getOrPut(post.user) { User(post.user, post.password) }
+            val user = userDataSource.findByUsername(post.username) ?: userDataSource.save(post.username, post.password)
             if (user.password != post.password) throw InvalidCredentialsException("Invalid credentials")
-            call.respond(mapOf("token" to simpleJWT.sign(user.name)))
+            call.respond(mapOf("token" to simpleJWT.sign(user.username)))
         }
 
-        route("/snippets") {
-            get {
-                call.respond(mapOf("snippets" to synchronized(snippets) { snippets.toList() }))
-            }
-
-            authenticate {
-                post {
-                    val post = call.receive<PostSnippet>()
-                    val principal = call.principal<UserIdPrincipal>() ?: error("No principal")
-                    snippets += Snippet(principal.name, post.snippet.text)
-                    call.respond(mapOf("OK" to true))
-                }
-            }
-        }
+//        route("/snippets") {
+//            authenticate {
+//                post {
+//                    val post = call.receive<PostSnippet>()
+//                    val principal = call.principal<UserIdPrincipal>() ?: error("No principal")
+//                    snippets += Snippet(principal.name, post.snippet.text)
+//                    call.respond(mapOf("OK" to true))
+//                }
+//            }
+//        }
 
         post("/graphql") {
             val request = call.receive<GraphQLRequest>()
-            call.respondText(schema.execute(request.query), contentType = ContentType.Application.Json)
+            call.respondText(appSchema.schema.execute(request.query), contentType = ContentType.Application.Json)
         }
     }
 }
