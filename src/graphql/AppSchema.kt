@@ -1,5 +1,6 @@
 package com.example.graphql
 
+import com.example.constant.AttendanceStatus
 import com.example.data.datasource.AttendanceDataSource
 import com.example.data.datasource.UserDataSource
 import com.example.data.entity.AttendanceEntity
@@ -7,10 +8,6 @@ import com.example.data.entity.UserEntity
 import com.github.pgutkowski.kgraphql.KGraphQL
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
-enum class AttendanceStatus {
-    LATE, MORNING_OFF, AFTERNOON_OFF, DAY_OFF, WORK_FROM_HOME
-}
 
 class AppSchema(
     private val userDataSource: UserDataSource,
@@ -32,6 +29,13 @@ class AppSchema(
 
         query("attendance") {
             resolver { id: Int -> attendanceDataSource.findById(id) }
+        }
+
+        mutation("createAttendance") {
+            description = "Creates attendance"
+            resolver { userId: Int, date: LocalDate, status: AttendanceStatus ->
+                attendanceDataSource.save(userId, date, status)
+            }
         }
 
         type<UserEntity> {

@@ -12,7 +12,7 @@ private val users = Collections.synchronizedList(
 
 class UserDataSource {
 
-    fun findAll() = users
+    fun findAll(): List<UserEntity> = users
 
     fun findById(id: Int) = users.firstOrNull { it.id == id }
 
