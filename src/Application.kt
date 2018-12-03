@@ -1,6 +1,10 @@
 package com.example
 
-import com.example.data.datasource.UserDataSource
+import com.example.data.entity.AttendanceEntity
+import com.example.data.entity.UserEntity
+import com.example.data.repository.UserRepository
+import com.example.data.table.Attendances
+import com.example.data.table.Users
 import com.example.di.appModule
 import com.example.exception.InvalidCredentialsException
 import com.example.graphql.AppSchema
@@ -30,18 +34,40 @@ import io.ktor.routing.routing
 import io.ktor.server.engine.commandLineEnvironment
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.StdOutSqlLogger
+import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import org.koin.ktor.ext.inject
 import org.koin.standalone.StandAloneContext.startKoin
 
 fun main(args: Array<String>) {
     startKoin(listOf(appModule))
+    Database.connect("jdbc:h2:mem:test", driver = "org.h2.Driver")
+    transaction {
+        addLogger(StdOutSqlLogger)
+        SchemaUtils.create (Users, Attendances)
+        val user = UserEntity.new {
+            username = "kiyoko.fukuhara"
+            password = "secret"
+        }
+        AttendanceEntity.new {
+            this.user = user
+            this.date = DateTime.now()
+            this.status = 1
+        }
+        println("Users: ${UserEntity.all().joinToString {it.username}}")
+        println("Attendances: ${AttendanceEntity.all().joinToString {it.date.toString()}}")
+    }
     embeddedServer(Netty, commandLineEnvironment(args)).start()
 }
 
 @Suppress("unused") // Referenced in application.conf
 @kotlin.jvm.JvmOverloads
 fun Application.main(testing: Boolean = false) {
-    val userDataSource: UserDataSource by inject()
+    val userRepository: UserRepository by inject()
 
     val appSchema: AppSchema by inject()
 
@@ -90,7 +116,7 @@ fun Application.main(testing: Boolean = false) {
 
         post("/login-register") {
             val post = call.receive<LoginRegister>()
-            val user = userDataSource.findByUsername(post.username) ?: userDataSource.save(post.username, post.password)
+            val user = userRepository.findByUsername(post.username) ?: userRepository.save(post.username, post.password)
             if (user.password != post.password) throw InvalidCredentialsException("Invalid credentials")
             call.respond(mapOf("token" to simpleJWT.sign(user.username)))
         }

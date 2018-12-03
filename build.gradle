@@ -34,6 +34,8 @@ dependencies {
     compile "io.ktor:ktor-server-netty:$ktor_version"
     compile 'com.github.pgutkowski:kgraphql:0.3.0'
     compile 'org.koin:koin-ktor:1.0.2'
+    compile 'org.jetbrains.exposed:exposed:0.11.2'
+    compile "com.h2database:h2:1.4.197"
     compile "ch.qos.logback:logback-classic:$logback_version"
     compile "io.ktor:ktor-server-core:$ktor_version"
     compile "io.ktor:ktor-auth:$ktor_version"

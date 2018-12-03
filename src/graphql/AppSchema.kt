@@ -1,61 +1,87 @@
 package com.example.graphql
 
 import com.example.constant.AttendanceStatus
-import com.example.data.datasource.AttendanceDataSource
-import com.example.data.datasource.UserDataSource
 import com.example.data.entity.AttendanceEntity
 import com.example.data.entity.UserEntity
+import com.example.data.repository.AttendanceRepository
+import com.example.data.repository.UserRepository
 import com.github.pgutkowski.kgraphql.KGraphQL
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+
+data class User(
+    val id: Int,
+    val username: String
+) {
+    companion object {
+        fun fromEntity(entity: UserEntity) = User(entity.id.value, entity.username)
+    }
+}
+
+data class Attendance(
+    val id: Int,
+    val userId: Int,
+    val date: DateTime,
+    val status: AttendanceStatus
+) {
+    companion object {
+        fun fromEntity(entity: AttendanceEntity) =
+            Attendance(entity.id.value, entity.user.id.value, entity.date, AttendanceStatus.LATE)
+    }
+}
 
 class AppSchema(
-    private val userDataSource: UserDataSource,
-    private val attendanceDataSource: AttendanceDataSource
+    private val userRepository: UserRepository,
+    private val attendanceRepository: AttendanceRepository
 ) {
 
     val schema = KGraphQL.schema {
         query("users") {
-            resolver { -> userDataSource.findAll() }
+            resolver { -> userRepository.findAll().map { User.fromEntity(it) } }
         }
 
         query("user") {
-            resolver { id: Int -> userDataSource.findById(id) }
+            resolver { id: Int -> userRepository.findById(id)?.let { User.fromEntity(it) } }
         }
 
         query("attendances") {
-            resolver { -> attendanceDataSource.findAll() }
+            resolver { -> attendanceRepository.findAll().map { Attendance.fromEntity(it) } }
         }
 
         query("attendance") {
-            resolver { id: Int -> attendanceDataSource.findById(id) }
+            resolver { id: Int -> attendanceRepository.findById(id)?.let { Attendance.fromEntity(it) } }
         }
 
         mutation("createAttendance") {
             description = "Creates attendance"
             resolver { userId: Int, date: LocalDate, status: AttendanceStatus ->
-                attendanceDataSource.save(userId, date, status)
+                "hoge"
+//                attendanceRepository.save(userId, date, status)
             }
         }
 
-        type<UserEntity> {
-            UserEntity::password.ignore()
-            property<List<AttendanceEntity>>("attendances") {
-                resolver { attendanceDataSource.findByUserId(it.id) }
+        type<User> {
+            property<List<Attendance>>("attendances") {
+                resolver { user ->
+                    val userEntity = userRepository.findById(user.id) ?: return@resolver emptyList<Attendance>()
+                    userEntity.attendances.toList().map { Attendance.fromEntity(it) }
+                }
             }
         }
 
-        type<AttendanceEntity> {
-            property<UserEntity>("user") {
-                resolver { userDataSource.findById(it.userId)!! }
+        type<Attendance> {
+            property<User>("user") {
+                resolver { User.fromEntity(userRepository.findById(it.userId)!!) }
             }
         }
 
         enum<AttendanceStatus>()
 
-        stringScalar<LocalDate> {
-            deserialize = { LocalDate.parse(it, DateTimeFormatter.ISO_DATE) }
-            serialize = { it.format(DateTimeFormatter.ISO_DATE) }
+        val dateFormat = DateTimeFormat.forPattern("yyyy-MM-dd")
+        stringScalar<DateTime> {
+            deserialize = { dateFormat.parseDateTime(it) }
+            serialize = { dateFormat.print(it) }
         }
     }
 }
