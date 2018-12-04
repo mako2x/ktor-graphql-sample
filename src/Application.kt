@@ -45,7 +45,7 @@ import org.koin.standalone.StandAloneContext.startKoin
 
 fun main(args: Array<String>) {
     startKoin(listOf(appModule))
-    Database.connect("jdbc:h2:mem:test", driver = "org.h2.Driver")
+    Database.connect("jdbc:mysql://localhost/ktor_sample", "com.mysql.jdbc.Driver", "test", "test")
     transaction {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create (Users, Attendances)
