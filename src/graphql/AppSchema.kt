@@ -6,9 +6,9 @@ import com.example.data.entity.UserEntity
 import com.example.data.repository.AttendanceRepository
 import com.example.data.repository.UserRepository
 import com.github.pgutkowski.kgraphql.KGraphQL
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-import java.time.LocalDate
 
 data class User(
     val id: Int,
@@ -26,8 +26,9 @@ data class Attendance(
     val status: AttendanceStatus
 ) {
     companion object {
-        fun fromEntity(entity: AttendanceEntity) =
+        fun fromEntity(entity: AttendanceEntity) = transaction {
             Attendance(entity.id.value, entity.user.id.value, entity.date, AttendanceStatus.LATE)
+        }
     }
 }
 
@@ -55,17 +56,17 @@ class AppSchema(
 
         mutation("createAttendance") {
             description = "Creates attendance"
-            resolver { userId: Int, date: LocalDate, status: AttendanceStatus ->
-                "hoge"
-//                attendanceRepository.save(userId, date, status)
+            resolver { userId: Int, date: DateTime, status: AttendanceStatus ->
+                val user = userRepository.findById(userId) ?: return@resolver null
+                val entity = attendanceRepository.save(user, date, status)
+                Attendance.fromEntity(entity)
             }
         }
 
         type<User> {
             property<List<Attendance>>("attendances") {
                 resolver { user ->
-                    val userEntity = userRepository.findById(user.id) ?: return@resolver emptyList<Attendance>()
-                    userEntity.attendances.toList().map { Attendance.fromEntity(it) }
+                    attendanceRepository.findByUserId(user.id).map { Attendance.fromEntity(it) }
                 }
             }
         }
