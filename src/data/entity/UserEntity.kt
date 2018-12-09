@@ -1,6 +1,5 @@
 package com.example.data.entity
 
-import com.example.data.table.Attendances
 import com.example.data.table.Users
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IntEntity
@@ -11,5 +10,4 @@ class UserEntity(id: EntityID<Int>) : IntEntity(id) {
 
     var username by Users.username
     var password by Users.password
-    val attendances by AttendanceEntity referrersOn Attendances.user
 }

@@ -8,7 +8,7 @@ import org.jetbrains.exposed.dao.IntEntityClass
 class AttendanceEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<AttendanceEntity>(Attendances)
 
-    var user by UserEntity referencedOn Attendances.user
+    var userId by Attendances.userId
     var date by Attendances.date
     var status by Attendances.status
 }

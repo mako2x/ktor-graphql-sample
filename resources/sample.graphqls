@@ -1,0 +1,33 @@
+type Query {
+    users: [User!]!
+    user(id: Int!): User!
+    attendances: [Attendance!]!
+    attendance(id: Int!): Attendance!
+}
+
+type Mutation {
+    addAttendance(userId: Int, date: String!, status: AttendanceStatus!): Attendance
+}
+
+type User {
+    id: Int!
+    username: String!
+    attendances: [Attendance!]!
+}
+
+type Attendance {
+    id: Int!
+    user: User!
+    date: Date!
+    status: AttendanceStatus!
+}
+
+enum AttendanceStatus {
+    LATE
+    MORNING_OFF
+    AFTERNOON_OFF
+    DAY_OFF
+    WORK_FROM_HOME
+}
+
+scalar Date

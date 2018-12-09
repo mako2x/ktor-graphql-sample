@@ -1,9 +1,10 @@
 package com.example.data.table
 
+import com.example.constant.AttendanceStatus
 import org.jetbrains.exposed.dao.IntIdTable
 
-object Attendances : IntIdTable() {
-    val user = reference("user_id", Users)
+object Attendances : IntIdTable(name = "attendances") {
+    val userId = integer("user_id").index()
     val date = date("date")
-    val status = integer("status")
+    val status = enumeration("status", AttendanceStatus::class)
 }

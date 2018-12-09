@@ -1,14 +1,13 @@
 package com.example
 
-import com.example.data.entity.AttendanceEntity
-import com.example.data.entity.UserEntity
 import com.example.data.repository.UserRepository
 import com.example.data.table.Attendances
 import com.example.data.table.Users
 import com.example.di.appModule
 import com.example.exception.InvalidCredentialsException
-import com.example.graphql.AppSchema
 import com.example.graphql.GraphQLRequest
+import com.example.graphql.AppSchema
+import com.example.graphql.toSpecificationJson
 import com.example.util.SimpleJWT
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.ktor.application.Application
@@ -28,7 +27,6 @@ import io.ktor.jackson.jackson
 import io.ktor.request.receive
 import io.ktor.response.respond
 import io.ktor.response.respondText
-import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.commandLineEnvironment
@@ -39,27 +37,16 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.joda.time.DateTime
 import org.koin.ktor.ext.inject
 import org.koin.standalone.StandAloneContext.startKoin
 
+
 fun main(args: Array<String>) {
     startKoin(listOf(appModule))
-    Database.connect("jdbc:mysql://localhost/ktor_sample", "com.mysql.jdbc.Driver", "test", "test")
+    Database.connect("jdbc:mysql://localhost/ktor_sample?useSSL=false", "com.mysql.jdbc.Driver", "test", "test")
     transaction {
         addLogger(StdOutSqlLogger)
-        SchemaUtils.create (Users, Attendances)
-        val user = UserEntity.new {
-            username = "kiyoko.fukuhara"
-            password = "secret"
-        }
-        AttendanceEntity.new {
-            this.user = user
-            this.date = DateTime.now()
-            this.status = 1
-        }
-        println("Users: ${UserEntity.all().joinToString {it.username}}")
-        println("Attendances: ${AttendanceEntity.all().joinToString {it.date.toString()}}")
+        SchemaUtils.create(Users, Attendances)
     }
     embeddedServer(Netty, commandLineEnvironment(args)).start()
 }
@@ -110,10 +97,6 @@ fun Application.main(testing: Boolean = false) {
     }
 
     routing {
-        get("/") {
-            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
-        }
-
         post("/login-register") {
             val post = call.receive<LoginRegister>()
             val user = userRepository.findByUsername(post.username) ?: userRepository.save(post.username, post.password)
@@ -134,7 +117,8 @@ fun Application.main(testing: Boolean = false) {
 
         post("/graphql") {
             val request = call.receive<GraphQLRequest>()
-            call.respondText(appSchema.schema.execute(request.query), contentType = ContentType.Application.Json)
+            val executionResult = appSchema.execute(request.query)
+            call.respondText(executionResult.toSpecificationJson(), contentType = ContentType.Application.Json)
         }
     }
 }

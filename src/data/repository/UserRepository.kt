@@ -18,6 +18,12 @@ class UserRepository {
         }
     }
 
+    fun findByIds(ids: List<Int>): List<UserEntity> {
+        return transaction {
+            UserEntity.forIds(ids).toList()
+        }
+    }
+
     fun findByUsername(username: String): UserEntity? {
         return transaction {
             UserEntity.find { Users.username eq username }.firstOrNull()
