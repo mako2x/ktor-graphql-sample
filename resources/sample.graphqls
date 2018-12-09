@@ -5,6 +5,10 @@ type Query {
     attendance(id: Int!): Attendance!
 }
 
+type Mutation {
+    addAttendance(userId: Int, date: String!, status: AttendanceStatus!): Attendance
+}
+
 type User {
     id: Int!
     username: String!

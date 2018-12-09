@@ -1,5 +1,6 @@
 package com.example.graphql
 
+import com.example.constant.AttendanceStatus
 import com.example.data.entity.AttendanceEntity
 import com.example.data.entity.UserEntity
 import com.example.data.repository.AttendanceRepository
@@ -73,6 +74,20 @@ class AppSchema(
                 val attendanceDataLoader = environment.getDataLoader<Int, AttendanceEntity>("attendance")
                 attendanceDataLoader.load(attendanceId)
                     .thenApply { Attendance.fromEntity(it) }
+            }
+        )
+        .type(newTypeWiring("Mutation")
+            .dataFetcher("addAttendance") { environment ->
+                val userId = environment.arguments["userId"] as? Int ?: return@dataFetcher null
+                val dateText = environment.arguments["date"] as? String ?: return@dataFetcher null
+                val statusText = environment.arguments["status"] as? String ?: return@dataFetcher null
+                Attendance.fromEntity(
+                    attendanceRepository.save(
+                        userId,
+                        dateFormat.parseDateTime(dateText),
+                        AttendanceStatus.valueOf(statusText)
+                    )
+                )
             }
         )
         .type(newTypeWiring("User")
