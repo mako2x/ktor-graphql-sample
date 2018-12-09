@@ -1,4 +1,5 @@
 type Query {
+    login(username: String!, password: String!): AuthPayload
     users: [User!]!
     user(id: Int!): User!
     attendances: [Attendance!]!
@@ -6,7 +7,12 @@ type Query {
 }
 
 type Mutation {
+    signup(username: String!, password: String!): AuthPayload
     addAttendance(userId: Int, date: String!, status: AttendanceStatus!): Attendance
+}
+
+type AuthPayload {
+    token: String!
 }
 
 type User {

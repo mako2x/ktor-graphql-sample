@@ -1,12 +1,10 @@
 package com.example
 
-import com.example.data.repository.UserRepository
 import com.example.data.table.Attendances
 import com.example.data.table.Users
 import com.example.di.appModule
-import com.example.exception.InvalidCredentialsException
-import com.example.graphql.GraphQLRequest
 import com.example.graphql.AppSchema
+import com.example.graphql.GraphQLRequest
 import com.example.graphql.toSpecificationJson
 import com.example.util.SimpleJWT
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -18,14 +16,11 @@ import io.ktor.auth.UserIdPrincipal
 import io.ktor.auth.jwt.jwt
 import io.ktor.features.CORS
 import io.ktor.features.ContentNegotiation
-import io.ktor.features.StatusPages
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
-import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
 import io.ktor.request.receive
-import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.post
 import io.ktor.routing.routing
@@ -40,10 +35,14 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.ktor.ext.inject
 import org.koin.standalone.StandAloneContext.startKoin
 
-
 fun main(args: Array<String>) {
     startKoin(listOf(appModule))
-    Database.connect("jdbc:mysql://localhost/ktor_sample?useSSL=false", "com.mysql.jdbc.Driver", "test", "test")
+    Database.connect(
+        "jdbc:mysql://localhost/ktor_sample?useSSL=false",
+        "com.mysql.jdbc.Driver",
+        "test",
+        "test"
+    )
     transaction {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(Users, Attendances)
@@ -54,9 +53,9 @@ fun main(args: Array<String>) {
 @Suppress("unused") // Referenced in application.conf
 @kotlin.jvm.JvmOverloads
 fun Application.main(testing: Boolean = false) {
-    val userRepository: UserRepository by inject()
-
     val appSchema: AppSchema by inject()
+
+    val simpleJWT: SimpleJWT by inject()
 
     install(CORS) {
         method(HttpMethod.Options)
@@ -69,12 +68,11 @@ fun Application.main(testing: Boolean = false) {
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
     }
 
-    val simpleJWT = SimpleJWT("my-super-secret-for-jwt")
     install(Authentication) {
         jwt {
             verifier(simpleJWT.verifier)
             validate {
-                UserIdPrincipal(it.payload.getClaim("name").asString())
+                UserIdPrincipal(it.payload.getClaim("id").asString())
             }
         }
     }
@@ -85,26 +83,8 @@ fun Application.main(testing: Boolean = false) {
         }
     }
 
-    install(StatusPages) {
-        exception<InvalidCredentialsException> { exception ->
-            call.respond(
-                HttpStatusCode.Unauthorized, mapOf(
-                    "OK" to false,
-                    "error" to (exception.message ?: "")
-                )
-            )
-        }
-    }
-
     routing {
-        post("/login-register") {
-            val post = call.receive<LoginRegister>()
-            val user = userRepository.findByUsername(post.username) ?: userRepository.save(post.username, post.password)
-            if (user.password != post.password) throw InvalidCredentialsException("Invalid credentials")
-            call.respond(mapOf("token" to simpleJWT.sign(user.username)))
-        }
-
-//        route("/snippets") {
+        //        route("/snippets") {
 //            authenticate {
 //                post {
 //                    val post = call.receive<PostSnippet>()
@@ -122,5 +102,3 @@ fun Application.main(testing: Boolean = false) {
         }
     }
 }
-
-class LoginRegister(val username: String, val password: String)

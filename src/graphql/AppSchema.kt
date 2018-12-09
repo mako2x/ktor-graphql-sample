@@ -5,8 +5,12 @@ import com.example.data.entity.AttendanceEntity
 import com.example.data.entity.UserEntity
 import com.example.data.repository.AttendanceRepository
 import com.example.data.repository.UserRepository
+import com.example.exception.InvalidCredentialsException
+import com.example.exception.UserAlreadyRegisteredException
 import com.example.graphql.type.Attendance
+import com.example.graphql.type.AuthPayload
 import com.example.graphql.type.User
+import com.example.util.SimpleJWT
 import com.fasterxml.jackson.databind.ObjectMapper
 import graphql.ExecutionInput.newExecutionInput
 import graphql.ExecutionResult
@@ -28,6 +32,7 @@ import java.io.Reader
 import java.util.concurrent.CompletableFuture
 
 class AppSchema(
+    private val simpleJWT: SimpleJWT,
     private val userRepository: UserRepository,
     private val attendanceRepository: AttendanceRepository
 ) {
@@ -57,6 +62,12 @@ class AppSchema(
 
     private fun buildRuntimeWiring() = newRuntimeWiring()
         .type(newTypeWiring("Query")
+            .dataFetcher("login") { environment ->
+                val username = environment.arguments["username"] as? String ?: return@dataFetcher null
+                val password = environment.arguments["password"] as? String ?: return@dataFetcher null
+                val user = userRepository.findByUsernameAndPassword(username, password) ?: throw InvalidCredentialsException("Invalid credentials")
+                AuthPayload(simpleJWT.sign(user.id.value))
+            }
             .dataFetcher("users") {
                 userRepository.findAll().map { user -> User.fromEntity(user) }
             }
@@ -88,6 +99,16 @@ class AppSchema(
                         AttendanceStatus.valueOf(statusText)
                     )
                 )
+            }
+            .dataFetcher("signup") { environment ->
+                val username = environment.arguments["username"] as? String ?: return@dataFetcher null
+                val password = environment.arguments["password"] as? String ?: return@dataFetcher null
+                if (userRepository.findByUsername(username) != null) {
+                    throw UserAlreadyRegisteredException(username)
+                }
+
+                val user = userRepository.save(username, password)
+                AuthPayload(simpleJWT.sign(user.id.value))
             }
         )
         .type(newTypeWiring("User")
